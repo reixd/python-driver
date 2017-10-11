@@ -243,7 +243,8 @@ class Statement(object):
             self.custom_payload = custom_payload
         self.is_idempotent = is_idempotent
 
-    def _key_parts_packed(self, parts):
+    @staticmethod
+    def _key_parts_packed(parts):
         for p in parts:
             l = len(p)
             yield struct.pack(">H%dsB" % l, l, p, 0)
