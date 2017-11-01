@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
 import six
 
 try:
@@ -28,7 +27,7 @@ from six import BytesIO
 import socket
 from socket import error as socket_error
 from cassandra.connection import (HEADER_DIRECTION_TO_CLIENT,
-                                  ConnectionException, ProtocolError,Timer)
+                                  ConnectionException, ProtocolError)
 from cassandra.io.asyncorereactor import AsyncoreConnection
 from cassandra.protocol import (write_stringmultimap, write_int, write_string,
                                 SupportedMessage, ReadyMessage, ServerError)
@@ -305,7 +304,7 @@ class AsyncoreConnectionTest(unittest.TestCase):
         """
         Verify that timer timeouts are honored appropriately
         """
-        c = self.make_connection()
+        self.make_connection()
         # Tests timers submitted in order at various timeouts
         submit_and_wait_for_completion(self, AsyncoreConnection, 0, 100, 1, 100)
         # Tests timers submitted in reverse order at various timeouts
@@ -331,6 +330,3 @@ class AsyncoreConnectionTest(unittest.TestCase):
         self.assertFalse(timer_manager._queue)
         self.assertFalse(timer_manager._new_timers)
         self.assertFalse(callback.was_invoked())
-
-
-
