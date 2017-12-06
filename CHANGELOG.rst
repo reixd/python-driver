@@ -13,6 +13,7 @@ Bug Fixes
 Other
 -----
 * cqlengine: avoid warning when unregistering connection on shutdown (PYTHON-865)
+* Possible deadlock on cassandra.concurrent.execute_concurrent (PYTHON-768)
 
 3.12.0
 ======
