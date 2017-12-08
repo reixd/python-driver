@@ -4,6 +4,21 @@ Upgrading
 .. toctree::
    :maxdepth: 1
 
+Upgrading to 4.0
+----------------
+
+* Cassandra 2.0 and protocol version 2 support have been removed.
+* No more legacy execution parameters. You need to use execution profiles. The
+  following attributes have been removed:
+
+  - Cluster.load_balancing_policy
+  - Cluster.default_retry_policy
+  - Session.default_timeout
+  - Session.default_consistency_level
+  - Session.default_serial_consistency_level
+  - Session.row_factory
+
+
 Upgrading to 3.0
 ----------------
 Version 3.0 of the DataStax Python driver for Apache Cassandra

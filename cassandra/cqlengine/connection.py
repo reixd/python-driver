@@ -17,9 +17,10 @@ import logging
 import six
 import threading
 
-from cassandra.cluster import Cluster, _NOT_SET, NoHostAvailable, UserTypeDoesNotExist, ConsistencyLevel
+from cassandra.cluster import Cluster, _NOT_SET, NoHostAvailable, UserTypeDoesNotExist, \
+    ConsistencyLevel, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.query import SimpleStatement, dict_factory
-
+    
 from cassandra.cqlengine import CQLEngineException
 from cassandra.cqlengine.statements import BaseCQLStatement
 
@@ -79,6 +80,16 @@ class Connection(object):
         self.lazy_connect = lazy_connect
         self.retry_connect = retry_connect
         self.cluster_options = cluster_options if cluster_options else {}
+        ep_kwargs = dict((k, self.cluster_options[k]) for k in ('load_balancing_policy', 'retry_policy') if
+                         k in self.cluster_options)
+        try:
+            ep = self.cluster_options['execution_profiles'][EXEC_PROFILE_DEFAULT]
+            ep.consistency_level = self.consistency
+            for k, v in ep_kwargs:
+                setattr(ep, k, v)
+        except KeyError:
+            ep = ExecutionProfile(consistency_level=self.consistency, row_factory=dict_factory, **ep_kwargs)
+            self.cluster_options['execution_profiles'] = {EXEC_PROFILE_DEFAULT: ep}
         self.lazy_connect_lock = threading.RLock()
 
     @classmethod
@@ -118,7 +129,7 @@ class Connection(object):
         self.setup_session()
 
     def setup_session(self):
-        self.session.row_factory = dict_factory
+        self.session.cluster.profile_manager.default.row_factory = dict_factory
         enc = self.session.encoder
         enc.mapping[tuple] = enc.cql_encode_tuple
         _register_known_types(self.session.cluster)
@@ -282,8 +293,8 @@ def set_session(s):
     if conn.session:
         log.warning("configuring new default connection for cqlengine when one was already set")
 
-    if s.row_factory is not dict_factory:
-        raise CQLEngineException("Failed to initialize: 'Session.row_factory' must be 'dict_factory'.")
+    if s.cluster.profile_manager.default.row_factory is not dict_factory:
+        raise CQLEngineException("Failed to initialize: the default 'ExecutionProfile.row_factory' must be 'dict_factory'.")
     conn.session = s
     conn.cluster = s.cluster
 
