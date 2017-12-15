@@ -2158,7 +2158,8 @@ class Session(object):
         """
         future = self._create_response_future(query, parameters, trace, custom_payload, timeout, execution_profile, paging_state)
         future._protocol_handler = self.client_protocol_handler
-        self._on_request(future)
+        if self._request_init_callbacks:
+            self._on_request(future)
         future.send_request()
         return future
 
@@ -3461,7 +3462,8 @@ class ResponseFuture(object):
         self._callback_lock = Lock()
         self._start_time = start_time or time.time()
         self._make_query_plan()
-        self._event = Event()
+        self._lock_event = Lock()
+        self._lock_event.acquire()
         self._errors = {}
         self._callbacks = []
         self._errbacks = []
@@ -3520,7 +3522,7 @@ class ResponseFuture(object):
 
     def _on_speculative_execute(self):
         self._timer = None
-        if not self._event.is_set():
+        if self._lock_event.locked():
             if self._time_remaining is not None:
                 if self._time_remaining <= 0:
                     self._on_timeout()
@@ -3621,7 +3623,7 @@ class ResponseFuture(object):
         Otherwise it may throw if the response has not been received.
         """
         # TODO: When timers are introduced, just make this wait
-        if not self._event.is_set():
+        if self._lock_event.locked():
             raise DriverException("warnings cannot be retrieved before ResponseFuture is finalized")
         return self._warnings
 
@@ -3639,7 +3641,7 @@ class ResponseFuture(object):
         :return: :ref:`custom_payload`.
         """
         # TODO: When timers are introduced, just make this wait
-        if not self._event.is_set():
+        if self._lock_event.locked():
             raise DriverException("custom_payload cannot be retrieved before ResponseFuture is finalized")
         return self._custom_payload
 
@@ -3658,7 +3660,7 @@ class ResponseFuture(object):
 
         self._make_query_plan()
         self.message.paging_state = self._paging_state
-        self._event.clear()
+        self._lock_event.acquire()
         self._final_result = _NOT_SET
         self._final_exception = None
         self._start_timer()
@@ -3902,7 +3904,7 @@ class ResponseFuture(object):
                 for (fn, args, kwargs) in self._callbacks
             )
 
-        self._event.set()
+        self._lock_event.release()
 
         # apply each callback
         for callback_partial in to_call:
@@ -3923,7 +3925,7 @@ class ResponseFuture(object):
                 partial(fn, response, *args, **kwargs)
                 for (fn, args, kwargs) in self._errbacks
             )
-        self._event.set()
+        self._lock_event.release()
 
         # apply each callback
         for callback_partial in to_call:
@@ -3980,7 +3982,8 @@ class ResponseFuture(object):
             ...     log.exception("Operation failed:")
 
         """
-        self._event.wait()
+        self._lock_event.acquire()
+        self._lock_event.release()
         if self._final_result is not _NOT_SET:
             return ResultSet(self, self._final_result)
         else:
